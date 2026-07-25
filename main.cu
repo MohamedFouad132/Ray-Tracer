@@ -1,7 +1,8 @@
 #include <cstdio>
 #include "vec3.cuh"
 #include "ray.cuh"
-
+#include "sphere.cuh"
+#include "intersect.cuh"
 
 const int IMAGE_WIDTH = 800;
 const int IMAGE_HEIGHT = 600;
@@ -13,7 +14,7 @@ const float VIEWPORT_WIDTH = VIEWPORT_HEIGHT * (float(IMAGE_WIDTH) / IMAGE_HEIGH
 const float FOCAL_LENGTH = 1.0f;
 
 
-__global__ void render(vec3* framebuffer, vec3 camera_origin, int width, int height, float viewport_width, float viewport_height, float focal_length) {
+__global__ void render(vec3* framebuffer, vec3 camera_origin, sphere s, int width, int height, float viewport_width, float viewport_height, float focal_length) {
 
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -28,14 +29,24 @@ __global__ void render(vec3* framebuffer, vec3 camera_origin, int width, int hei
 
     vec3 viewport_point(viewport_x, viewport_y, -focal_length);
     vec3 ray_direction = (viewport_point - camera_origin).normalize();
+
+    ray r(camera_origin, ray_direction);
+    float t;
     int pixel_index = y * width + x;
-    framebuffer[pixel_index] = ray_direction;
+
+    if (hit_sphere(r, s, t)){
+        framebuffer[pixel_index] = s.color;
+    } else {
+        framebuffer[pixel_index] = vec3(0.0f, 0.0f, 0.0f);
+    }
+
 
 }
 
 
 int main(){
 
+    sphere s(vec3(0.0f, 0.0f, -2.0f), 0.5f, vec3(1.0f, 0.0f, 0.0f));
     int num_pixels = IMAGE_WIDTH * IMAGE_HEIGHT;
     size_t framebuffer_size = num_pixels * sizeof(vec3);
     vec3 *d_framebuffer;
@@ -44,7 +55,7 @@ int main(){
 
     dim3 blockDim(16, 16);
     dim3 gridDim((IMAGE_WIDTH + blockDim.x - 1) / blockDim.x, (IMAGE_HEIGHT + blockDim.y - 1) / blockDim.y);
-    render<<<gridDim, blockDim>>>(d_framebuffer, camera_origin, IMAGE_WIDTH, IMAGE_HEIGHT, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, FOCAL_LENGTH);
+    render<<<gridDim, blockDim>>>(d_framebuffer, camera_origin, s, IMAGE_WIDTH, IMAGE_HEIGHT, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, FOCAL_LENGTH);
     cudaDeviceSynchronize();
     
     vec3* h_framebuffer = (vec3*)malloc(framebuffer_size);
@@ -55,9 +66,9 @@ int main(){
     for (int i = 0; i < num_pixels; i++) {
         vec3 color = h_framebuffer[i];
         // ray directions range roughly -1 to 1, remap to 0-255 for a visible image
-        int r = int(((color.x + 1.0f) * 0.5f) * 255);
-        int g = int(((color.y + 1.0f) * 0.5f) * 255);
-        int b = int(((color.z + 1.0f) * 0.5f) * 255);
+        int r = int(color.x * 255);
+        int g = int(color.y * 255);
+        int b = int(color.z * 255);
         fprintf(f, "%d %d %d\n", r, g, b);
     }
 
