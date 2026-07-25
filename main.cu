@@ -4,6 +4,7 @@
 #include "sphere.cuh"
 #include "intersect.cuh"
 
+const vec3 LIGHT_POSITION(2.0f, 2.0f, 0.0f);
 const int IMAGE_WIDTH = 800;
 const int IMAGE_HEIGHT = 600;
 
@@ -35,7 +36,12 @@ __global__ void render(vec3* framebuffer, vec3 camera_origin, sphere s, int widt
     int pixel_index = y * width + x;
 
     if (hit_sphere(r, s, t)){
-        framebuffer[pixel_index] = s.color;
+        vec3 hit_point = r.at(t);
+        vec3 normal = (hit_point - s.center).normalize();
+        vec3 light_direction = (LIGHT_POSITION - hit_point).normalize();
+        float brightness = normal.dot(light_direction);
+        brightness = fmaxf(0.0f, brightness);
+        framebuffer[pixel_index] = s.color * brightness;
     } else {
         framebuffer[pixel_index] = vec3(0.0f, 0.0f, 0.0f);
     }
@@ -65,7 +71,6 @@ int main(){
 
     for (int i = 0; i < num_pixels; i++) {
         vec3 color = h_framebuffer[i];
-        // ray directions range roughly -1 to 1, remap to 0-255 for a visible image
         int r = int(color.x * 255);
         int g = int(color.y * 255);
         int b = int(color.z * 255);
