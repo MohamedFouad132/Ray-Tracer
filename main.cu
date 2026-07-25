@@ -4,7 +4,6 @@
 #include "sphere.cuh"
 #include "intersect.cuh"
 
-const vec3 LIGHT_POSITION(2.0f, 2.0f, 0.0f);
 const int IMAGE_WIDTH = 800;
 const int IMAGE_HEIGHT = 600;
 
@@ -15,7 +14,7 @@ const float VIEWPORT_WIDTH = VIEWPORT_HEIGHT * (float(IMAGE_WIDTH) / IMAGE_HEIGH
 const float FOCAL_LENGTH = 1.0f;
 
 
-__global__ void render(vec3* framebuffer, vec3 camera_origin, sphere s, int width, int height, float viewport_width, float viewport_height, float focal_length) {
+__global__ void render(vec3* framebuffer, vec3 camera_origin, sphere s, vec3 light_position, int width, int height, float viewport_width, float viewport_height, float focal_length) {
 
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -38,7 +37,7 @@ __global__ void render(vec3* framebuffer, vec3 camera_origin, sphere s, int widt
     if (hit_sphere(r, s, t)){
         vec3 hit_point = r.at(t);
         vec3 normal = (hit_point - s.center).normalize();
-        vec3 light_direction = (LIGHT_POSITION - hit_point).normalize();
+        vec3 light_direction = (light_position - hit_point).normalize();
         float brightness = normal.dot(light_direction);
         brightness = fmaxf(0.0f, brightness);
         framebuffer[pixel_index] = s.color * brightness;
@@ -53,6 +52,8 @@ __global__ void render(vec3* framebuffer, vec3 camera_origin, sphere s, int widt
 int main(){
 
     sphere s(vec3(0.0f, 0.0f, -2.0f), 0.5f, vec3(1.0f, 0.0f, 0.0f));
+    vec3 light_position(2.0f, 2.0f, 0.0f);
+
     int num_pixels = IMAGE_WIDTH * IMAGE_HEIGHT;
     size_t framebuffer_size = num_pixels * sizeof(vec3);
     vec3 *d_framebuffer;
@@ -61,7 +62,7 @@ int main(){
 
     dim3 blockDim(16, 16);
     dim3 gridDim((IMAGE_WIDTH + blockDim.x - 1) / blockDim.x, (IMAGE_HEIGHT + blockDim.y - 1) / blockDim.y);
-    render<<<gridDim, blockDim>>>(d_framebuffer, camera_origin, s, IMAGE_WIDTH, IMAGE_HEIGHT, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, FOCAL_LENGTH);
+    render<<<gridDim, blockDim>>>(d_framebuffer, camera_origin, s, light_position, IMAGE_WIDTH, IMAGE_HEIGHT, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, FOCAL_LENGTH);
     cudaDeviceSynchronize();
     
     vec3* h_framebuffer = (vec3*)malloc(framebuffer_size);
@@ -84,4 +85,3 @@ int main(){
     cudaFree(d_framebuffer);
     return 0;
 }
-
