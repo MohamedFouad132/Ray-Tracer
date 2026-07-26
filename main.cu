@@ -14,7 +14,7 @@ const float VIEWPORT_WIDTH = VIEWPORT_HEIGHT * (float(IMAGE_WIDTH) / IMAGE_HEIGH
 const float FOCAL_LENGTH = 1.0f;
 
 
-__global__ void render(vec3* framebuffer, vec3 camera_origin, sphere s, vec3 light_position, int width, int height, float viewport_width, float viewport_height, float focal_length) {
+__global__ void render(vec3* framebuffer, vec3 camera_origin, sphere* spheres, int num_spheres, vec3 light_position, int width, int height, float viewport_width, float viewport_height, float focal_length) {
 
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -33,14 +33,14 @@ __global__ void render(vec3* framebuffer, vec3 camera_origin, sphere s, vec3 lig
     ray r(camera_origin, ray_direction);
     float t;
     int pixel_index = y * width + x;
-
-    if (hit_sphere(r, s, t)){
+    int hit_index = hit_scene(r, spheres, num_spheres, t);
+    if (hit_index != -1){
         vec3 hit_point = r.at(t);
-        vec3 normal = (hit_point - s.center).normalize();
+        vec3 normal = (hit_point - spheres[hit_index].center).normalize();
         vec3 light_direction = (light_position - hit_point).normalize();
         float brightness = normal.dot(light_direction);
         brightness = fmaxf(0.0f, brightness);
-        framebuffer[pixel_index] = s.color * brightness;
+        framebuffer[pixel_index] = spheres[hit_index].color * brightness;
     } else {
         framebuffer[pixel_index] = vec3(0.0f, 0.0f, 0.0f);
     }
@@ -51,7 +51,17 @@ __global__ void render(vec3* framebuffer, vec3 camera_origin, sphere s, vec3 lig
 
 int main(){
 
-    sphere s(vec3(0.0f, 0.0f, -2.0f), 0.5f, vec3(1.0f, 0.0f, 0.0f));
+    sphere h_spheres[3] = {
+        sphere(vec3(0.0f, 0.0f, -2.0f), 0.5f, vec3(1.0f, 0.0f, 0.0f)),
+        sphere(vec3(1.2f, 0.0f, -3.0f), 0.5f, vec3(0.0f, 1.0f, 0.0f)),   
+        sphere(vec3(-1.2f, 0.3f, -2.5f), 0.4f, vec3(0.0f, 0.0f, 1.0f))   
+    };
+    int num_spheres = 3;
+
+    sphere* d_spheres;
+    cudaMalloc(&d_spheres, num_spheres * sizeof(sphere));
+    cudaMemcpy(d_spheres, h_spheres, num_spheres * sizeof(sphere), cudaMemcpyHostToDevice);
+
     vec3 light_position(2.0f, 2.0f, 0.0f);
 
     int num_pixels = IMAGE_WIDTH * IMAGE_HEIGHT;
@@ -62,7 +72,7 @@ int main(){
 
     dim3 blockDim(16, 16);
     dim3 gridDim((IMAGE_WIDTH + blockDim.x - 1) / blockDim.x, (IMAGE_HEIGHT + blockDim.y - 1) / blockDim.y);
-    render<<<gridDim, blockDim>>>(d_framebuffer, camera_origin, s, light_position, IMAGE_WIDTH, IMAGE_HEIGHT, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, FOCAL_LENGTH);
+    render<<<gridDim, blockDim>>>(d_framebuffer, camera_origin, d_spheres, num_spheres, light_position, IMAGE_WIDTH, IMAGE_HEIGHT, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, FOCAL_LENGTH);
     cudaDeviceSynchronize();
     
     vec3* h_framebuffer = (vec3*)malloc(framebuffer_size);
@@ -80,8 +90,8 @@ int main(){
 
     fclose(f);
 
-
     free(h_framebuffer);
     cudaFree(d_framebuffer);
+    cudaFree(d_spheres);
     return 0;
 }
