@@ -19,6 +19,8 @@ __global__ void render(vec3* framebuffer, vec3 camera_origin, sphere* spheres, i
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
 
+    int pixel_index = y * width + x;
+
     if (x >= width || y >= height) return;
 
     float u = float(x) / (width - 1);
@@ -26,16 +28,19 @@ __global__ void render(vec3* framebuffer, vec3 camera_origin, sphere* spheres, i
 
     float viewport_x = (u-0.5f) * viewport_width;
     float viewport_y = (0.5f-v) * viewport_height;
-
     vec3 viewport_point(viewport_x, viewport_y, -focal_length);
     vec3 ray_direction = (viewport_point - camera_origin).normalize();
-
     ray r(camera_origin, ray_direction);
-    float t;
-    int pixel_index = y * width + x;
-    int hit_index = hit_scene(r, spheres, num_spheres, t);
-    if (hit_index != -1){
-        vec3 hit_point = r.at(t);
+
+    vec3 final_color(0.0f, 0.0f, 0.0f);
+    vec3 color_multiplier(1.0f, 1.0f, 1.0f);
+    const int MAX_BOUNCES = 5;
+    ray current_ray = r;
+    for (int bounce = 0; bounce < MAX_BOUNCES; bounce++) {
+        float hit_t;
+        int hit_index = hit_scene(current_ray, spheres, num_spheres, hit_t);
+        if (hit_index == -1) break;
+        vec3 hit_point = current_ray.at(hit_t);
         vec3 normal = (hit_point - spheres[hit_index].center).normalize();
         vec3 light_direction = (light_position - hit_point).normalize();
         float brightness = normal.dot(light_direction);
@@ -46,11 +51,14 @@ __global__ void render(vec3* framebuffer, vec3 camera_origin, sphere* spheres, i
         if (shadow_hit_index != -1 && shadow_t < (light_position - hit_point).length()) {
             brightness *= 0.5f;
         }
-        framebuffer[pixel_index] = spheres[hit_index].color * brightness;
-
-    } else {
-        framebuffer[pixel_index] = vec3(0.0f, 0.0f, 0.0f);
+        vec3 local_color = spheres[hit_index].color * brightness;
+        final_color = final_color + local_color * (1-spheres[hit_index].reflectivity) * color_multiplier;
+        if (spheres[hit_index].reflectivity <= 0.0f) break;
+        color_multiplier = color_multiplier * spheres[hit_index].reflectivity;
+        vec3 reflected_direction = reflect(current_ray.direction, normal);
+        current_ray = ray(hit_point, reflected_direction);
     }
+    framebuffer[pixel_index] = final_color;
 
 }
 
@@ -58,9 +66,9 @@ __global__ void render(vec3* framebuffer, vec3 camera_origin, sphere* spheres, i
 int main(){
 
     sphere h_spheres[3] = {
-        sphere(vec3(0.0f, 0.0f, -2.0f), 0.5f, vec3(1.0f, 0.0f, 0.0f)),
-        sphere(vec3(1.2f, 0.0f, -3.0f), 0.5f, vec3(0.0f, 1.0f, 0.0f)),   
-        sphere(vec3(-1.2f, 0.3f, -2.5f), 0.4f, vec3(0.0f, 0.0f, 1.0f))   
+        sphere(vec3(0.0f, 0.0f, -2.0f), 0.5f, vec3(1.0f, 0.0f, 0.0f), 0.0f),
+        sphere(vec3(1.2f, 0.0f, -3.0f), 0.5f, vec3(0.0f, 1.0f, 0.0f), 0.0f),   
+        sphere(vec3(-1.2f, 0.3f, -2.5f), 0.4f, vec3(0.0f, 0.0f, 1.0f), 0.6f)   
     };
     int num_spheres = 3;
 

@@ -42,3 +42,7 @@ __host__ __device__ int hit_scene(const ray& r, const sphere* spheres, int num_s
 
     return index;
 }
+
+__host__ __device__ vec3 reflect(const vec3& d, const vec3& n) {
+    return d - n * 2.0f * d.dot(n);
+}
