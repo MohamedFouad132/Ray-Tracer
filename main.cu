@@ -40,7 +40,8 @@ __global__ void render(vec3* framebuffer, vec3 camera_origin, sphere* spheres, i
         vec3 light_direction = (light_position - hit_point).normalize();
         float brightness = normal.dot(light_direction);
         brightness = fmaxf(0.0f, brightness);
-        ray shadow_ray(hit_point, light_direction);
+        vec3 shadow_origin = hit_point + normal * 0.001f;
+        ray shadow_ray(shadow_origin, light_direction);
         float shadow_t;
         int shadow_hit_index = hit_scene(shadow_ray, spheres, num_spheres, shadow_t);
         if (shadow_hit_index != -1 && shadow_t < light_direction.length()) {
