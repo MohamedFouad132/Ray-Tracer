@@ -14,8 +14,19 @@ __host__ __device__ bool hit_sphere(const ray& r, const sphere& s, float& t){
     if (discriminant < 0)
         return false;
         
-    t = (-b - sqrtf(discriminant)) / (2.0f * a);
-    return true;
+    float t0 = (-b - sqrtf(discriminant)) / (2.0f * a);
+    float t1 = (-b + sqrtf(discriminant)) / (2.0f * a);
+    if (t0 > 0.001f) {
+        t = t0;
+        return true;
+    }
+
+    if (t1 > 0.001f) {
+        t = t1;
+        return true;
+    }
+
+    return false;
 }
 
 __host__ __device__ int hit_scene(const ray& r, const sphere* spheres, int num_spheres, float& closest_t) {
