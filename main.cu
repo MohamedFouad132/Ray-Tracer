@@ -18,7 +18,6 @@ __global__ void render(vec3* framebuffer, vec3 camera_origin, sphere* spheres, i
 
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
-
     int pixel_index = y * width + x;
 
     if (x >= width || y >= height) return;
@@ -28,22 +27,26 @@ __global__ void render(vec3* framebuffer, vec3 camera_origin, sphere* spheres, i
 
     float viewport_x = (u-0.5f) * viewport_width;
     float viewport_y = (0.5f-v) * viewport_height;
+
     vec3 viewport_point(viewport_x, viewport_y, -focal_length);
     vec3 ray_direction = (viewport_point - camera_origin).normalize();
-    ray r(camera_origin, ray_direction);
 
+    ray r(camera_origin, ray_direction);
     vec3 final_color(0.0f, 0.0f, 0.0f);
     vec3 color_multiplier(1.0f, 1.0f, 1.0f);
     const int MAX_BOUNCES = 5;
     ray current_ray = r;
+
     for (int bounce = 0; bounce < MAX_BOUNCES; bounce++) {
         float hit_t;
         int hit_index = hit_scene(current_ray, spheres, num_spheres, hit_t);
+
+        float plane_t;
+        bool hit_floor = hit_plane(current_ray, -1.0f, plane_t);
+
         bool floor_is_closer = hit_floor && (hit_index == -1 || plane_t < hit_t);
 
-        floor hit_plane;
-        int hit_index_plane = hit_floor(current_ray, -1.0f, hit_t);
-        if (hit_index == -1 && hit_index_plane == -1) {
+        if (hit_index == -1 && !hit_floor) {
             float sky_t = 0.5f * (current_ray.direction.y + 1.0f);
             vec3 sky_color = vec3(1.0f, 1.0f, 1.0f) * (1.0f - sky_t) + vec3(0.5f, 0.7f, 1.0f) * sky_t;
             final_color = final_color + sky_color * color_multiplier;
@@ -60,7 +63,7 @@ __global__ void render(vec3* framebuffer, vec3 camera_origin, sphere* spheres, i
             float brightness = fmaxf(0.0f, normal.dot(light_direction));
 
             final_color = final_color + floor_color * brightness * color_multiplier;
-            break; 
+            break;
         }
 
         vec3 hit_point = current_ray.at(hit_t);
@@ -68,21 +71,25 @@ __global__ void render(vec3* framebuffer, vec3 camera_origin, sphere* spheres, i
         vec3 light_direction = (light_position - hit_point).normalize();
         float brightness = normal.dot(light_direction);
         brightness = fmaxf(0.0f, brightness);
+
         ray shadow_ray(hit_point, light_direction);
         float shadow_t;
         int shadow_hit_index = hit_scene(shadow_ray, spheres, num_spheres, shadow_t);
         if (shadow_hit_index != -1 && shadow_t < (light_position - hit_point).length()) {
             brightness *= 0.5f;
         }
+
         vec3 local_color = spheres[hit_index].color * brightness;
         final_color = final_color + local_color * (1-spheres[hit_index].reflectivity) * color_multiplier;
+
         if (spheres[hit_index].reflectivity <= 0.0f) break;
+
         color_multiplier = color_multiplier * spheres[hit_index].reflectivity;
         vec3 reflected_direction = reflect(current_ray.direction, normal);
         current_ray = ray(hit_point, reflected_direction);
     }
-    framebuffer[pixel_index] = final_color;
 
+    framebuffer[pixel_index] = final_color;
 }
 
 
