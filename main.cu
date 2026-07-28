@@ -44,7 +44,7 @@ __global__ void render(vec3* framebuffer, vec3 camera_origin, sphere* spheres, i
         ray shadow_ray(shadow_origin, light_direction);
         float shadow_t;
         int shadow_hit_index = hit_scene(shadow_ray, spheres, num_spheres, shadow_t);
-        if (shadow_hit_index != -1 && shadow_t < light_direction.length()) {
+        if (shadow_hit_index != -1 && shadow_t < (light_position - hit_point).length()) {
             brightness *= 0.5f;
         }
         framebuffer[pixel_index] = spheres[hit_index].color * brightness;
