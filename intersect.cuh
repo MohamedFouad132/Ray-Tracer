@@ -43,6 +43,15 @@ __host__ __device__ int hit_scene(const ray& r, const sphere* spheres, int num_s
     return index;
 }
 
+
+__host__ __device__ bool hit_plane(const ray& r, float plane_y, float& t) {
+    if (fabsf(r.direction.y) < 0.0001f) return false;
+    t = (plane_y - r.origin.y) / r.direction.y;
+    return t > 0.001f;
+}
+
+
+
 __host__ __device__ vec3 reflect(const vec3& d, const vec3& n) {
     return d - n * 2.0f * d.dot(n);
 }

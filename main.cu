@@ -39,7 +39,30 @@ __global__ void render(vec3* framebuffer, vec3 camera_origin, sphere* spheres, i
     for (int bounce = 0; bounce < MAX_BOUNCES; bounce++) {
         float hit_t;
         int hit_index = hit_scene(current_ray, spheres, num_spheres, hit_t);
-        if (hit_index == -1) break;
+        bool floor_is_closer = hit_floor && (hit_index == -1 || plane_t < hit_t);
+
+        floor hit_plane;
+        int hit_index_plane = hit_floor(current_ray, -1.0f, hit_t);
+        if (hit_index == -1 && hit_index_plane == -1) {
+            float sky_t = 0.5f * (current_ray.direction.y + 1.0f);
+            vec3 sky_color = vec3(1.0f, 1.0f, 1.0f) * (1.0f - sky_t) + vec3(0.5f, 0.7f, 1.0f) * sky_t;
+            final_color = final_color + sky_color * color_multiplier;
+            break;
+        }
+
+        if (floor_is_closer) {
+            vec3 hit_point = current_ray.at(plane_t);
+            int checker = (int(floorf(hit_point.x)) + int(floorf(hit_point.z))) % 2;
+            vec3 floor_color = (checker == 0) ? vec3(0.9f,0.9f,0.9f) : vec3(0.1f,0.1f,0.1f);
+
+            vec3 normal(0.0f, 1.0f, 0.0f);
+            vec3 light_direction = (light_position - hit_point).normalize();
+            float brightness = fmaxf(0.0f, normal.dot(light_direction));
+
+            final_color = final_color + floor_color * brightness * color_multiplier;
+            break; 
+        }
+
         vec3 hit_point = current_ray.at(hit_t);
         vec3 normal = (hit_point - spheres[hit_index].center).normalize();
         vec3 light_direction = (light_position - hit_point).normalize();
