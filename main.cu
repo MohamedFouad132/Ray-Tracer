@@ -1,4 +1,5 @@
 #include <cstdio>
+#include <curand_kernel.h>
 #include "vec3.cuh"
 #include "ray.cuh"
 #include "sphere.cuh"
@@ -12,26 +13,11 @@ const float VIEWPORT_HEIGHT = 2.0f;
 // preserving the aspect ratio of the image
 const float VIEWPORT_WIDTH = VIEWPORT_HEIGHT * (float(IMAGE_WIDTH) / IMAGE_HEIGHT);
 const float FOCAL_LENGTH = 1.0f;
+const int SAMPLES_PER_PIXEL = 4;
 
 
-__global__ void render(vec3* framebuffer, vec3 camera_origin, sphere* spheres, int num_spheres, vec3 light_position, int width, int height, float viewport_width, float viewport_height, float focal_length) {
+__device__ vec3 trace_ray(ray r, sphere* spheres, int num_spheres, vec3 light_position){
 
-    int x = blockIdx.x * blockDim.x + threadIdx.x;
-    int y = blockIdx.y * blockDim.y + threadIdx.y;
-    int pixel_index = y * width + x;
-
-    if (x >= width || y >= height) return;
-
-    float u = float(x) / (width - 1);
-    float v = float(y) / (height - 1);
-
-    float viewport_x = (u-0.5f) * viewport_width;
-    float viewport_y = (0.5f-v) * viewport_height;
-
-    vec3 viewport_point(viewport_x, viewport_y, -focal_length);
-    vec3 ray_direction = (viewport_point - camera_origin).normalize();
-
-    ray r(camera_origin, ray_direction);
     vec3 final_color(0.0f, 0.0f, 0.0f);
     vec3 color_multiplier(1.0f, 1.0f, 1.0f);
     const int MAX_BOUNCES = 5;
@@ -55,7 +41,7 @@ __global__ void render(vec3* framebuffer, vec3 camera_origin, sphere* spheres, i
 
         if (floor_is_closer) {
             vec3 hit_point = current_ray.at(plane_t);
-            int checker = (int(floorf(hit_point.x)) + int(floorf(hit_point.z))) % 2;
+            int checker = ((int(floorf(hit_point.x)) + int(floorf(hit_point.z))) % 2 + 2) % 2;
             vec3 floor_color = (checker == 0) ? vec3(0.9f,0.9f,0.9f) : vec3(0.1f,0.1f,0.1f);
 
             vec3 normal(0.0f, 1.0f, 0.0f);
@@ -89,7 +75,42 @@ __global__ void render(vec3* framebuffer, vec3 camera_origin, sphere* spheres, i
         current_ray = ray(hit_point, reflected_direction);
     }
 
-    framebuffer[pixel_index] = final_color;
+        return final_color;
+}
+
+
+__global__ void render(vec3* framebuffer, vec3 camera_origin, sphere* spheres, int num_spheres, vec3 light_position, int width, int height, float viewport_width, float viewport_height, float focal_length) {
+
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int pixel_index = y * width + x;
+
+    if (x >= width || y >= height) return;
+
+    curandState rand_state;
+    curand_init(pixel_index, 0, 0, &rand_state);
+
+    vec3 pixel_color(0.0f, 0.0f, 0.0f);
+
+    for (int s = 0; s < SAMPLES_PER_PIXEL; s++) {
+        float jitter_x = curand_uniform(&rand_state) - 0.5f;
+        float jitter_y = curand_uniform(&rand_state) - 0.5f;
+
+        float u = (float(x) + jitter_x) / (width - 1);
+        float v = (float(y) + jitter_y) / (height - 1);
+
+        float viewport_x = (u-0.5f) * viewport_width;
+        float viewport_y = (0.5f-v) * viewport_height;
+
+        vec3 viewport_point(viewport_x, viewport_y, -focal_length);
+        vec3 ray_direction = (viewport_point - camera_origin).normalize();
+        ray r(camera_origin, ray_direction);
+
+        pixel_color = pixel_color + trace_ray(r, spheres, num_spheres, light_position);
+    }
+
+    pixel_color = pixel_color * (1.0f / SAMPLES_PER_PIXEL);
+    framebuffer[pixel_index] = pixel_color;
 }
 
 
@@ -124,11 +145,13 @@ int main(){
     FILE* f = fopen("output.ppm", "w");
     fprintf(f, "P3\n%d %d\n255\n", IMAGE_WIDTH, IMAGE_HEIGHT);
 
+    auto clamp = [](float v){ return fmin(1.0f, fmax(0.0f, v)); };
+    
     for (int i = 0; i < num_pixels; i++) {
         vec3 color = h_framebuffer[i];
-        int r = int(color.x * 255);
-        int g = int(color.y * 255);
-        int b = int(color.z * 255);
+        int r = int(clamp(color.x) * 255);
+        int g = int(clamp(color.y) * 255);
+        int b = int(clamp(color.z) * 255);
         fprintf(f, "%d %d %d\n", r, g, b);
     }
 
