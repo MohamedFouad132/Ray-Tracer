@@ -6,6 +6,8 @@
 #include "intersect.cuh"
 #include "render.cuh"
 
+const int SAMPLES_PER_PIXEL = 4;
+
 // Traces a single ray through the scene, calculating color contributions from direct lighting, shadows, and reflections.
 // It returns the final color for the ray.
 __device__ vec3 trace_ray(ray r, sphere* spheres, int num_spheres, vec3 light_position){

@@ -15,9 +15,6 @@ const int IMAGE_HEIGHT = 1080;
 const float VIEWPORT_HEIGHT = 2.0f;
 const float VIEWPORT_WIDTH = VIEWPORT_HEIGHT * (float(IMAGE_WIDTH) / IMAGE_HEIGHT); // This is computed to preserve the aspect ratio of the image.
 const float FOCAL_LENGTH = 1.0f;
-const int SAMPLES_PER_PIXEL = 4;
-
-
 
 int main(){
 
