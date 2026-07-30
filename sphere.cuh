@@ -1,5 +1,11 @@
-#pragma once
+// sphere.cuh
+// This file defines the sphere structure found in the ray tracing scene.
+// A sphere is defined by its center point, radius, color, and reflectivity.
+// A 0.0 reflectivity means the sphere is fully diffuse.
+// A 1.0 reflectivity means the sphere is fully reflective.
+// Works for both host and device code.
 
+#pragma once
 #include "vec3.cuh"
 
 struct sphere {
