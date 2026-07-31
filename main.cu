@@ -14,7 +14,7 @@ const int IMAGE_WIDTH = 1920;
 const int IMAGE_HEIGHT = 1080;
 const float VIEWPORT_HEIGHT = 2.0f;
 const float VIEWPORT_WIDTH = VIEWPORT_HEIGHT * (float(IMAGE_WIDTH) / IMAGE_HEIGHT); // This is computed to preserve the aspect ratio of the image.
-const float FOCAL_LENGTH = 1.0f;
+const float FOCAL_LENGTH = 1.5f;
 
 int main(){
 
@@ -22,14 +22,14 @@ int main(){
     // Define the scene with spheres, light source and camera position
     int num_spheres = 4;
     sphere h_spheres[4] = {
-        sphere(vec3(-4.5f, 4.0f, 0.7f), 0.6f, vec3(0.0f, 0.0f, 1.0f), 0.0f),
-        sphere(vec3(-1.9f, 4.0f, 1.1f), 1.0f, vec3(1.0f, 0.0f, 0.0f), 0.0f),
-        sphere(vec3( 1.1f, 4.0f, 1.1f), 1.0f, vec3(0.9f, 0.9f, 0.9f), 0.82f),
-        sphere(vec3( 3.9f, 4.0f, 0.9f), 0.8f, vec3(1.0f, 1.0f, 0.0f), 0.0f)
+        sphere(vec3(-4.5f, 5.0f, 0.7f), 0.6f, vec3(0.0f, 0.0f, 1.0f), 0.0f),
+        sphere(vec3(-1.9f, 5.0f, 1.1f), 1.0f, vec3(1.0f, 0.0f, 0.0f), 0.0f),
+        sphere(vec3( 1.1f, 5.0f, 1.1f), 1.0f, vec3(0.9f, 0.9f, 0.9f), 0.82f),
+        sphere(vec3( 3.9f, 5.0f, 0.9f), 0.8f, vec3(1.0f, 1.0f, 0.0f), 0.0f)
     };
 
     vec3 light_position(-1.0f, 3.0f, 10.0f);
-    vec3 camera_origin(0.0f, 0.0f, 2.0f);
+    vec3 camera_origin(0.0f, -0.5f, 2.0f);
 
     // Allocate memory on the GPU for the spheres and copy the sphere data from host to device
     sphere* d_spheres;
