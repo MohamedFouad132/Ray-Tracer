@@ -1,5 +1,6 @@
 #include <cstdio>
 #include <curand_kernel.h>
+#include <random>
 #include "vec3.cuh"
 #include "ray.cuh"
 #include "sphere.cuh"
@@ -10,7 +11,7 @@ const int SAMPLES_PER_PIXEL = 4;
 
 // Traces a single ray through the scene, calculating color contributions from direct lighting, shadows, and reflections.
 // It returns the final color for the ray.
-__device__ vec3 trace_ray(ray r, sphere* spheres, int num_spheres, vec3 light_position){
+__host__ __device__ vec3 trace_ray(ray r, sphere* spheres, int num_spheres, vec3 light_position){
 
     const int MAX_BOUNCES = 5;
 
@@ -115,7 +116,7 @@ __device__ vec3 trace_ray(ray r, sphere* spheres, int num_spheres, vec3 light_po
 }
 
 
-__global__ void render(vec3* framebuffer, vec3 camera_origin, sphere* spheres, int num_spheres, vec3 light_position, int width, int height, float viewport_width, float viewport_height, float focal_length) {
+__global__ void gpu_render(vec3* framebuffer, vec3 camera_origin, sphere* spheres, int num_spheres, vec3 light_position, int width, int height, float viewport_width, float viewport_height, float focal_length) {
 
     // Each thread computes the final color for exactly one pixel.
     int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -160,4 +161,38 @@ __global__ void render(vec3* framebuffer, vec3 camera_origin, sphere* spheres, i
     // Average the accumulated color samples to get the final pixel color and store it in the framebuffer
     pixel_color = pixel_color * (1.0f / SAMPLES_PER_PIXEL);
     framebuffer[pixel_index] = pixel_color;
+}
+
+
+
+void cpu_render(vec3* framebuffer, vec3 camera_origin, sphere* spheres, int num_spheres, vec3 light_position, int width, int height, float viewport_width, float viewport_height, float focal_length){
+    for (int y = 0; y < height; y++){
+        for (int x = 0; x < width; x++){
+            int pixel_index = y * width + x;
+            std::mt19937 rng(pixel_index);
+            std::uniform_real_distribution<float> dist(-0.5f, 0.5f);
+            vec3 pixel_color(0.0f, 0.0f, 0.0f);
+            for (int s = 0; s < SAMPLES_PER_PIXEL; s++){
+                float jitter_x = dist(rng);
+                float jitter_y = dist(rng);
+
+                float u = (float(x) + jitter_x) / (width - 1);
+                float v = (float(y) + jitter_y) / (height - 1);
+
+                float viewport_x = (u-0.5f) * viewport_width;
+                float viewport_z = (0.5f-v) * viewport_height + camera_origin.z; // Adjusted to move the viewport in front of the camera
+
+                // Compute ray direction and create a ray from the camera origin through the computed viewport point
+                vec3 viewport_point(viewport_x, focal_length, viewport_z);
+                vec3 ray_direction = (viewport_point - camera_origin).normalize();
+                ray r(camera_origin, ray_direction);
+
+                // Trace the ray and accumulate the color contribution from this sample
+                pixel_color = pixel_color + trace_ray(r, spheres, num_spheres, light_position);
+            }
+            // Average the accumulated color samples to get the final pixel color and store it in the framebuffer
+            pixel_color = pixel_color * (1.0f / SAMPLES_PER_PIXEL);
+            framebuffer[pixel_index] = pixel_color;
+        }
+    }
 }
