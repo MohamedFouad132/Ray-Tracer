@@ -1,3 +1,10 @@
+// render.cu
+// Implements the core ray tracing logic: trace_ray (shared by both CPU and GPU paths)
+// Handles shading, shadows, reflections, the sky gradient, and the checkered floor.
+// gpu_render launches one thread per pixel on the GPU
+// cpu_render performs the equivalent work sequentially on the CPU. 
+// Both apply anti-aliasing by multi-sampling per pixel.
+
 #include <cstdio>
 #include <curand_kernel.h>
 #include <random>

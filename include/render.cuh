@@ -1,5 +1,7 @@
-#pragma once
+// render.cuh
+// Header file for render.cu declaring the GPU and CPU rendering functions.
 
+#pragma once
 #include "vec3.cuh"
 #include "sphere.cuh"
 

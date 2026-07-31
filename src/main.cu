@@ -1,6 +1,7 @@
 // main.cu
-// This is the main entry point for the ray tracing application. It sets up the scene, initializes the camera and light source, and launches the rendering kernel on the GPU. The rendered image is saved as a PPM file.
-// Includes features such as shading, shadows, reflections and anti-aliasing.
+// This is the main entry point for the ray tracing application.
+// It sets up the scene, initializes the camera and light source, and renders the image using either the GPU (default) or the CPU (--cpu flag).
+// Result is saved as a PPM file.
 
 
 // Include defined headers
