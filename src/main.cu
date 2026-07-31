@@ -6,6 +6,7 @@
 
 // Include defined headers
 #include <cstdio>
+#include <string>
 #include "vec3.cuh"
 #include "sphere.cuh"
 #include "render.cuh"
