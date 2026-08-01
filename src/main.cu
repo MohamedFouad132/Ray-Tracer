@@ -32,7 +32,7 @@ int main(int argc, char** argv){
     };
 
     vec3 light_position(-1.0f, 3.0f, 10.0f);
-    vec3 camera_origin(0.0f, 0.0f, 2.0f);
+    vec3 camera_origin(0.0f, -0.5f, 2.0f);
 
     // Allocate memory on the host for the framebuffer
     int num_pixels = IMAGE_WIDTH * IMAGE_HEIGHT;
