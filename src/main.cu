@@ -13,11 +13,15 @@
 
 
 int main(int argc, char** argv){
+
+    // Parse command line arguments for image width, height and rendering mode
     int width = 1920;
     int height = 1080;
     std::string mode = "gpu"; // Default mode is GPU
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
+
+        // Handle --help or -h flag to display usage information
         if (arg == "--help" || arg == "-h") {
             printf("Usage: raytracer [options]\n");
             printf("  --width <n>     Image width in pixels (default: 1920)\n");
@@ -25,6 +29,8 @@ int main(int argc, char** argv){
             printf("  --mode <mode>   Render mode: cpu, gpu, gpu-optimized (default: gpu)\n");
             printf("  --help, -h      Show this message\n");
             return 0;
+        
+        // Handle --width flag to set image width
         } else if (arg == "--width"){
             if (i + 1 >= argc) {
                 fprintf(stderr, "Error: --width requires a value\n");
@@ -36,6 +42,8 @@ int main(int argc, char** argv){
                 fprintf(stderr, "Error: Width must be a positive integer\n");
                 return 1;
             }
+
+        // Handle --height flag to set image height
         } else if (arg == "--height") {
             if (i + 1 >= argc) {
                 fprintf(stderr, "Error: --height requires a value\n");
@@ -47,6 +55,8 @@ int main(int argc, char** argv){
                 fprintf(stderr, "Error: Height must be a positive integer\n");
                 return 1;
             }
+
+        // Handle --mode flag to set rendering mode (cpu, gpu, gpu-optimized)
         } else if (arg == "--mode") {
             if (i + 1 >= argc) {
                 fprintf(stderr, "Error: --mode requires a value\n");
@@ -60,13 +70,16 @@ int main(int argc, char** argv){
             }
         }
 
+        // Handle unknown flags
         else {
-            fprintf(stderr, "Error: Unknown argument '%s'\n", arg.c_str());
+            fprintf(stderr, "Error: Unknown flag '%s'\n", arg.c_str());
             fprintf(stderr, "Use --help or -h for usage information.\n");
             return 1;
         }
     }
 
+
+    // Define constants for the viewport dimensions and focal length based on the image aspect ratio
     const float VIEWPORT_HEIGHT = 2.0f;
     const float VIEWPORT_WIDTH = VIEWPORT_HEIGHT * (float(width) / height);
     const float FOCAL_LENGTH = 1.5f;
@@ -108,7 +121,13 @@ int main(int argc, char** argv){
         // The formula for grid dimensions applies ceiling division to ensure that all pixels are covered even if the image dimensions are not multiples of the block size.
         dim3 blockDim(16, 16);
         dim3 gridDim((width + blockDim.x - 1) / blockDim.x, (height + blockDim.y - 1) / blockDim.y);
-        gpu_render<<<gridDim, blockDim>>>(d_framebuffer, camera_origin, d_spheres, num_spheres, light_position, width, height, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, FOCAL_LENGTH);
+
+        // Launch the appropriate GPU rendering kernel based on the specified mode (gpu or gpu-optimized)
+        if (mode == "gpu-optimized") {
+            gpu_render_optimized<<<gridDim, blockDim>>>(d_framebuffer, camera_origin, d_spheres, num_spheres, light_position, width, height, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, FOCAL_LENGTH);
+        } else {
+            gpu_render<<<gridDim, blockDim>>>(d_framebuffer, camera_origin, d_spheres, num_spheres, light_position, width, height, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, FOCAL_LENGTH);
+        }
         // Wait for the GPU to finish before copying the framebuffer back to the host
         cudaDeviceSynchronize();
         cudaMemcpy(h_framebuffer, d_framebuffer, framebuffer_size, cudaMemcpyDeviceToHost);
