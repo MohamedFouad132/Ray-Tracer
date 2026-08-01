@@ -157,7 +157,7 @@ __global__ void gpu_render(vec3* framebuffer, vec3 camera_origin, sphere* sphere
         float viewport_z = (0.5f-v) * viewport_height + camera_origin.z; // Adjusted to move the viewport in front of the camera
 
         // Compute ray direction and create a ray from the camera origin through the computed viewport point
-        vec3 viewport_point(viewport_x, focal_length, viewport_z);
+        vec3 viewport_point(viewport_x, camera_origin.y + focal_length, viewport_z);
         vec3 ray_direction = (viewport_point - camera_origin).normalize();
         ray r(camera_origin, ray_direction);
 
@@ -190,7 +190,7 @@ void cpu_render(vec3* framebuffer, vec3 camera_origin, sphere* spheres, int num_
                 float viewport_z = (0.5f-v) * viewport_height + camera_origin.z; // Adjusted to move the viewport in front of the camera
 
                 // Compute ray direction and create a ray from the camera origin through the computed viewport point
-                vec3 viewport_point(viewport_x, focal_length, viewport_z);
+                vec3 viewport_point(viewport_x, camera_origin.y + focal_length, viewport_z);
                 vec3 ray_direction = (viewport_point - camera_origin).normalize();
                 ray r(camera_origin, ray_direction);
 
