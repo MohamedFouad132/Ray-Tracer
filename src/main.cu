@@ -12,16 +12,66 @@
 #include "render.cuh"
 
 
-const int IMAGE_WIDTH = 1920;
-const int IMAGE_HEIGHT = 1080;
-const float VIEWPORT_HEIGHT = 2.0f;
-const float VIEWPORT_WIDTH = VIEWPORT_HEIGHT * (float(IMAGE_WIDTH) / IMAGE_HEIGHT); // This is computed to preserve the aspect ratio of the image.
-const float FOCAL_LENGTH = 1.5f;
-
 int main(int argc, char** argv){
-    bool use_cpu = (argc > 1 && std::string(argv[1]) == "--cpu");
+    int width = 1920;
+    int height = 1080;
+    std::string mode = "gpu"; // Default mode is GPU
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--help" || arg == "-h") {
+            printf("Usage: raytracer [options]\n");
+            printf("  --width <n>     Image width in pixels (default: 1920)\n");
+            printf("  --height <n>    Image height in pixels (default: 1080)\n");
+            printf("  --mode <mode>   Render mode: cpu, gpu, gpu-optimized (default: gpu)\n");
+            printf("  --help, -h      Show this message\n");
+            return 0;
+        } else if (arg == "--width"){
+            if (i + 1 >= argc) {
+                fprintf(stderr, "Error: --width requires a value\n");
+                return 1;
+            }
 
+            width = std::stoi(argv[++i]);
+            if (width <= 0) {
+                fprintf(stderr, "Error: Width must be a positive integer\n");
+                return 1;
+            }
+        } else if (arg == "--height") {
+            if (i + 1 >= argc) {
+                fprintf(stderr, "Error: --height requires a value\n");
+                return 1;
+            }
 
+            height = std::stoi(argv[++i]);
+            if (height <= 0) {
+                fprintf(stderr, "Error: Height must be a positive integer\n");
+                return 1;
+            }
+        } else if (arg == "--mode") {
+            if (i + 1 >= argc) {
+                fprintf(stderr, "Error: --mode requires a value\n");
+                return 1;
+            }
+
+            mode = argv[++i];
+            if (mode != "cpu" && mode != "gpu" && mode != "gpu-optimized") {
+                fprintf(stderr, "Error: Invalid mode. Use 'cpu', 'gpu', or 'gpu-optimized'\n");
+                return 1;
+            }
+        }
+
+        else {
+            fprintf(stderr, "Error: Unknown argument '%s'\n", arg.c_str());
+            fprintf(stderr, "Use --help or -h for usage information.\n");
+            return 1;
+        }
+    }
+
+    const float VIEWPORT_HEIGHT = 2.0f;
+    const float VIEWPORT_WIDTH = VIEWPORT_HEIGHT * (float(width) / height);
+    const float FOCAL_LENGTH = 1.5f;
+
+    
     // Define the scene with spheres, light source and camera position
     int num_spheres = 4;
     sphere h_spheres[4] = {
@@ -35,13 +85,13 @@ int main(int argc, char** argv){
     vec3 camera_origin(0.0f, -0.5f, 2.0f);
 
     // Allocate memory on the host for the framebuffer
-    int num_pixels = IMAGE_WIDTH * IMAGE_HEIGHT;
+    int num_pixels = width * height;
     size_t framebuffer_size = num_pixels * sizeof(vec3);
     vec3* h_framebuffer = (vec3*)malloc(framebuffer_size);
     
-    if (use_cpu) {
+    if (mode == "cpu") {
         // If the user specified the --cpu flag, use the CPU rendering function
-        cpu_render(h_framebuffer, camera_origin, h_spheres, num_spheres, light_position, IMAGE_WIDTH, IMAGE_HEIGHT, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, FOCAL_LENGTH);
+        cpu_render(h_framebuffer, camera_origin, h_spheres, num_spheres, light_position, width, height, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, FOCAL_LENGTH);
 
     } else {
         // Otherwise, use the GPU rendering function
@@ -57,8 +107,8 @@ int main(int argc, char** argv){
         // Define the block and grid dimensions for launching the CUDA kernel. Each block contains 16x16 threads.
         // The formula for grid dimensions applies ceiling division to ensure that all pixels are covered even if the image dimensions are not multiples of the block size.
         dim3 blockDim(16, 16);
-        dim3 gridDim((IMAGE_WIDTH + blockDim.x - 1) / blockDim.x, (IMAGE_HEIGHT + blockDim.y - 1) / blockDim.y);
-        gpu_render<<<gridDim, blockDim>>>(d_framebuffer, camera_origin, d_spheres, num_spheres, light_position, IMAGE_WIDTH, IMAGE_HEIGHT, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, FOCAL_LENGTH);
+        dim3 gridDim((width + blockDim.x - 1) / blockDim.x, (height + blockDim.y - 1) / blockDim.y);
+        gpu_render<<<gridDim, blockDim>>>(d_framebuffer, camera_origin, d_spheres, num_spheres, light_position, width, height, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, FOCAL_LENGTH);
         // Wait for the GPU to finish before copying the framebuffer back to the host
         cudaDeviceSynchronize();
         cudaMemcpy(h_framebuffer, d_framebuffer, framebuffer_size, cudaMemcpyDeviceToHost);
@@ -69,7 +119,7 @@ int main(int argc, char** argv){
 
     // Write the framebuffer to a PPM file (a text based image format)
     FILE* f = fopen("output.ppm", "w");
-    fprintf(f, "P3\n%d %d\n255\n", IMAGE_WIDTH, IMAGE_HEIGHT);
+    fprintf(f, "P3\n%d %d\n255\n", width, height);
     
     // Define a lambda function to clamp color values between 0.0 and 1.0 before converting to 0-255 range.
     auto clamp = [](float v){ return fmin(1.0f, fmax(0.0f, v)); };
