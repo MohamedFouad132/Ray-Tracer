@@ -7,9 +7,11 @@
 // Include defined headers
 #include <cstdio>
 #include <string>
+#include <chrono>
 #include "vec3.cuh"
 #include "sphere.cuh"
 #include "render.cuh"
+
 
 
 int main(int argc, char** argv){
@@ -18,6 +20,7 @@ int main(int argc, char** argv){
     int width = 1920;
     int height = 1080;
     std::string mode = "gpu"; // Default mode is GPU
+    bool benchmark_mode = false;
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
 
@@ -28,6 +31,7 @@ int main(int argc, char** argv){
             printf("  --height <n>    Image height in pixels (default: 1080)\n");
             printf("  --mode <mode>   Render mode: cpu, gpu, gpu-optimized (default: gpu)\n");
             printf("  --help, -h      Show this message\n");
+            printf("  --benchmark     Write precise render time to last_render_time.txt (default: off)\n");
             return 0;
         
         // Handle --width flag to set image width
@@ -68,6 +72,8 @@ int main(int argc, char** argv){
                 fprintf(stderr, "Error: Invalid mode. Use 'cpu', 'gpu', or 'gpu-optimized'\n");
                 return 1;
             }
+        } else if (arg == "--benchmark") {
+            benchmark_mode = true;
         }
 
         // Handle unknown flags
@@ -103,8 +109,25 @@ int main(int argc, char** argv){
     vec3* h_framebuffer = (vec3*)malloc(framebuffer_size);
     
     if (mode == "cpu") {
+
+        std::chrono::high_resolution_clock::time_point start, end;
+
+        // If benchmark mode is enabled, start the timer before rendering
+        if (benchmark_mode){
+            start = std::chrono::high_resolution_clock::now();
+        }
         // If the user specified the --cpu flag, use the CPU rendering function
         cpu_render(h_framebuffer, camera_origin, h_spheres, num_spheres, light_position, width, height, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, FOCAL_LENGTH);
+
+        // If benchmark mode is enabled, stop the timer and write the elapsed time to a file
+        if (benchmark_mode){
+            end = std::chrono::high_resolution_clock::now();
+            // Calculate the elapsed time in milliseconds and write it to last_render_time.txt
+            std::chrono::duration<double, std::milli> elapsed = end - start;
+            FILE* timing_file = fopen("last_render_time.txt", "w");
+            fprintf(timing_file, "%.4f", elapsed.count());
+            fclose(timing_file);
+        }
 
     } else {
         // Otherwise, use the GPU rendering function
@@ -122,12 +145,40 @@ int main(int argc, char** argv){
         dim3 blockDim(16, 16);
         dim3 gridDim((width + blockDim.x - 1) / blockDim.x, (height + blockDim.y - 1) / blockDim.y);
 
+        
+        // Declared outside both if-blocks so both can see and use the same events
+        cudaEvent_t start, stop;
+
+        // If benchmark mode is enabled, create CUDA events to measure GPU execution time
+        if (benchmark_mode) {
+            cudaEventCreate(&start);
+            cudaEventCreate(&stop);
+            cudaEventRecord(start);
+        }
+
         // Launch the appropriate GPU rendering kernel based on the specified mode (gpu or gpu-optimized)
         if (mode == "gpu-optimized") {
             gpu_render_optimized<<<gridDim, blockDim>>>(d_framebuffer, camera_origin, d_spheres, num_spheres, light_position, width, height, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, FOCAL_LENGTH);
         } else {
             gpu_render<<<gridDim, blockDim>>>(d_framebuffer, camera_origin, d_spheres, num_spheres, light_position, width, height, VIEWPORT_WIDTH, VIEWPORT_HEIGHT, FOCAL_LENGTH);
         }
+
+        // If benchmark mode is enabled, record the stop event and calculate the elapsed time in milliseconds
+        if (benchmark_mode) {
+            // Record the stop event and synchronize to ensure accurate timing
+            cudaEventRecord(stop);
+            cudaEventSynchronize(stop);
+            float milliseconds;
+            cudaEventElapsedTime(&milliseconds, start, stop);
+            // Write the elapsed time to last_render_time.txt
+            FILE* timing_file = fopen("last_render_time.txt", "w");
+            fprintf(timing_file, "%.4f", milliseconds);
+            fclose(timing_file);
+            // Destroy the CUDA events to free resources
+            cudaEventDestroy(start);
+            cudaEventDestroy(stop);
+        }
+
         // Wait for the GPU to finish before copying the framebuffer back to the host
         cudaDeviceSynchronize();
         cudaMemcpy(h_framebuffer, d_framebuffer, framebuffer_size, cudaMemcpyDeviceToHost);
