@@ -171,14 +171,70 @@ __global__ void gpu_render(vec3* framebuffer, vec3 camera_origin, sphere* sphere
 }
 
 
+// Placeholder for the optimized GPU rendering kernel.
+__global__ void gpu_render_optimized(vec3* framebuffer, vec3 camera_origin, sphere* spheres, int num_spheres, vec3 light_position, int width, int height, float viewport_width, float viewport_height, float focal_length) {
 
+    // Each thread computes the final color for exactly one pixel.
+    int x = blockIdx.x * blockDim.x + threadIdx.x;
+    int y = blockIdx.y * blockDim.y + threadIdx.y;
+    int pixel_index = y * width + x;
+
+    // Guard against threads outside the image
+    if (x >= width || y >= height) return;
+
+
+    // Initialize a random number generator for anti-aliasing.
+    // The curandState is used to generate random numbers for jittering the ray direction within each pixel.
+    curandState rand_state;
+    curand_init(pixel_index, 0, 0, &rand_state);
+
+    // Initialize vector to accumulate color samples for anti-aliasing
+    vec3 pixel_color(0.0f, 0.0f, 0.0f);
+
+    // For each sample, jitter the ray direction slightly to achieve anti-aliasing.
+    for (int s = 0; s < SAMPLES_PER_PIXEL; s++) {
+
+        // Generate random offsets for anti-aliasing within the pixel
+        float jitter_x = curand_uniform(&rand_state) - 0.5f;
+        float jitter_y = curand_uniform(&rand_state) - 0.5f;
+
+        // Compute fraction of the pixel's position in the viewport adjusted by the jitter
+        float u = (float(x) + jitter_x) / (width - 1);
+        float v = (float(y) + jitter_y) / (height - 1);
+        
+        float viewport_x = (u-0.5f) * viewport_width;
+        float viewport_z = (0.5f-v) * viewport_height + camera_origin.z; // Adjusted to move the viewport in front of the camera
+
+        // Compute ray direction and create a ray from the camera origin through the computed viewport point
+        vec3 viewport_point(viewport_x, camera_origin.y + focal_length, viewport_z);
+        vec3 ray_direction = (viewport_point - camera_origin).normalize();
+        ray r(camera_origin, ray_direction);
+
+        // Trace the ray and accumulate the color contribution from this sample
+        pixel_color = pixel_color + trace_ray(r, spheres, num_spheres, light_position);
+    }
+
+    // Average the accumulated color samples to get the final pixel color and store it in the framebuffer
+    pixel_color = pixel_color * (1.0f / SAMPLES_PER_PIXEL);
+    framebuffer[pixel_index] = pixel_color;
+}
+
+
+// CPU rendering function that performs the equivalent work sequentially on the CPU.
 void cpu_render(vec3* framebuffer, vec3 camera_origin, sphere* spheres, int num_spheres, vec3 light_position, int width, int height, float viewport_width, float viewport_height, float focal_length){
+
+    // Iterate over every pixel sequentially, row by row
     for (int y = 0; y < height; y++){
         for (int x = 0; x < width; x++){
             int pixel_index = y * width + x;
+
+            // Use a standard C++ random number generator for anti-aliasing
+            // Seed it with the pixel index to ensure different random values for each pixel
             std::mt19937 rng(pixel_index);
             std::uniform_real_distribution<float> dist(-0.5f, 0.5f);
             vec3 pixel_color(0.0f, 0.0f, 0.0f);
+
+            // For each sample, jitter the ray direction slightly to achieve anti-aliasing.
             for (int s = 0; s < SAMPLES_PER_PIXEL; s++){
                 float jitter_x = dist(rng);
                 float jitter_y = dist(rng);
