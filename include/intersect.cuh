@@ -78,6 +78,17 @@ __host__ __device__ int hit_scene(const ray& r, const sphere* spheres, int num_s
     return index;
 }
 
+__host__ __device__ bool hit_anything(const ray& r, const sphere* spheres, int num_spheres, float max_t) {
+
+    for (int i = 0; i < num_spheres; i++) {
+        float t;
+        if (hit_sphere(r, spheres[i], t) && t < max_t) {
+            return true;
+        }
+    }
+    return false;
+}
+
 
 // Reflects a vector d around a normal n using the reflection formula
 // For the derivation of this formula, see docs/derivations.md#reflection
