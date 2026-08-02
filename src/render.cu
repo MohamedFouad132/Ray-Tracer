@@ -16,6 +16,11 @@
 
 const int SAMPLES_PER_PIXEL = 4;
 
+__device__ float random_float(unsigned int& seed) {
+    seed = seed * 1664525u + 1013904223u;
+    return float(seed & 0x00FFFFFFu) * (1.0f / 16777216.0f);
+}
+
 // Traces a single ray through the scene, calculating color contributions from direct lighting, shadows, and reflections.
 // It returns the final color for the ray.
 __host__ __device__ vec3 trace_ray(ray r, sphere* spheres, int num_spheres, vec3 light_position){
@@ -273,7 +278,7 @@ __global__ void gpu_render(vec3* framebuffer, vec3 camera_origin, sphere* sphere
 
 
 // Placeholder for the optimized GPU rendering kernel.
-__global__ void __launch_bounds__(256, 4) gpu_render_optimized(vec3* framebuffer, vec3 camera_origin, sphere* spheres, int num_spheres, vec3 light_position, int width, int height, float viewport_width, float viewport_height, float focal_length) {
+__global__ void gpu_render_optimized(vec3* framebuffer, vec3 camera_origin, sphere* spheres, int num_spheres, vec3 light_position, int width, int height, float viewport_width, float viewport_height, float focal_length) {
 
     // Each thread computes the final color for exactly one pixel.
     int x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -283,11 +288,7 @@ __global__ void __launch_bounds__(256, 4) gpu_render_optimized(vec3* framebuffer
     // Guard against threads outside the image
     if (x >= width || y >= height) return;
 
-
-    // Initialize a random number generator for anti-aliasing.
-    // The curandState is used to generate random numbers for jittering the ray direction within each pixel.
-    curandState rand_state;
-    curand_init(pixel_index, 0, 0, &rand_state);
+    unsigned int seed = pixel_index * 3242174893u + 123456789u;
 
     // Initialize vector to accumulate color samples for anti-aliasing
     vec3 pixel_color(0.0f, 0.0f, 0.0f);
@@ -296,8 +297,8 @@ __global__ void __launch_bounds__(256, 4) gpu_render_optimized(vec3* framebuffer
     for (int s = 0; s < SAMPLES_PER_PIXEL; s++) {
 
         // Generate random offsets for anti-aliasing within the pixel
-        float jitter_x = curand_uniform(&rand_state) - 0.5f;
-        float jitter_y = curand_uniform(&rand_state) - 0.5f;
+        float jitter_x = random_float(seed) - 0.5f;
+        float jitter_y = random_float(seed) - 0.5f;
 
         // Compute fraction of the pixel's position in the viewport adjusted by the jitter
         float u = (float(x) + jitter_x) / (width - 1);
