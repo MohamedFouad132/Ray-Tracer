@@ -197,8 +197,10 @@ __host__ __device__ vec3 trace_ray_optimized(ray r, sphere* spheres, int num_sph
         // If we hit a sphere we calculate the color contribution from that sphere
         vec3 hit_point = current_ray.at(hit_t);
 
+        sphere hit_sphere_data = spheres[hit_index]; // Store the hit sphere's data in a local variable to avoid repeated global memory accesses.
+
         // Brightness is calculated based on the angle between the light direction and the normal at the hit point.
-        vec3 normal = (hit_point - spheres[hit_index].center).normalize();
+        vec3 normal = (hit_point - hit_sphere_data.center).normalize();
         vec3 light_direction = (light_position - hit_point).normalize();
         float brightness = normal.dot(light_direction);
         brightness = fmaxf(0.0f, brightness);
@@ -211,15 +213,15 @@ __host__ __device__ vec3 trace_ray_optimized(ray r, sphere* spheres, int num_sph
         }
 
         // Calculate the local color based on the sphere's color and the calculated brightness.
-        vec3 local_color = spheres[hit_index].color * brightness;
+        vec3 local_color = hit_sphere_data.color * brightness;
         // Update the final color by adding the local color contribution scaled by the sphere's reflectivity and the current color multiplier.
-        final_color = final_color + local_color * (1-spheres[hit_index].reflectivity) * color_multiplier;
+        final_color = final_color + local_color * (1-hit_sphere_data.reflectivity) * color_multiplier;
 
         // If the sphere is not reflective we can stop tracing further rays.
-        if (spheres[hit_index].reflectivity <= 0.0f) break;
+        if (hit_sphere_data.reflectivity <= 0.0f) break;
 
         // Update the color multiplier for the next bounce based on the sphere's reflectivity and calculate the reflected ray direction.
-        color_multiplier = color_multiplier * spheres[hit_index].reflectivity;
+        color_multiplier = color_multiplier * hit_sphere_data.reflectivity;
         vec3 reflected_direction = reflect(current_ray.direction, normal);
         current_ray = ray(hit_point, reflected_direction);
     }
@@ -280,6 +282,14 @@ __global__ void gpu_render(vec3* framebuffer, vec3 camera_origin, sphere* sphere
 // Placeholder for the optimized GPU rendering kernel.
 __global__ void gpu_render_optimized(vec3* framebuffer, vec3 camera_origin, sphere* spheres, int num_spheres, vec3 light_position, int width, int height, float viewport_width, float viewport_height, float focal_length) {
 
+    __shared__ sphere shared_spheres[4];
+    int local_index = threadIdx.y * blockDim.x + threadIdx.x;
+    if (local_index < num_spheres) {
+        shared_spheres[local_index] = spheres[local_index];
+    }
+    __syncthreads();
+    
+
     // Each thread computes the final color for exactly one pixel.
     int x = blockIdx.x * blockDim.x + threadIdx.x;
     int y = blockIdx.y * blockDim.y + threadIdx.y;
@@ -313,7 +323,7 @@ __global__ void gpu_render_optimized(vec3* framebuffer, vec3 camera_origin, sphe
         ray r(camera_origin, ray_direction);
 
         // Trace the ray and accumulate the color contribution from this sample
-        pixel_color = pixel_color + trace_ray_optimized(r, spheres, num_spheres, light_position);
+        pixel_color = pixel_color + trace_ray_optimized(r, shared_spheres, num_spheres, light_position);
     }
 
     // Average the accumulated color samples to get the final pixel color and store it in the framebuffer
