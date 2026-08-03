@@ -78,14 +78,18 @@ __host__ __device__ int hit_scene(const ray& r, const sphere* spheres, int num_s
     return index;
 }
 
+// Determines if a ray intersects with any sphere in the scene within a maximum distance max_t.
+// This function is used for shadows to exit early if any object blocks the light source.
 __host__ __device__ bool hit_anything(const ray& r, const sphere* spheres, int num_spheres, float max_t) {
 
     for (int i = 0; i < num_spheres; i++) {
         float t;
+        // If the ray intersects with a sphere and the intersection distance t is less than max_t then return true indicating an intersection.
         if (hit_sphere(r, spheres[i], t) && t < max_t) {
             return true;
         }
     }
+
     return false;
 }
 

@@ -16,6 +16,7 @@
 
 const int SAMPLES_PER_PIXEL = 4;
 
+// Generates a pseudo-random float in the range [0, 1) using a simple linear congruential generator (LCG).
 __device__ float random_float(unsigned int& seed) {
     seed = seed * 1664525u + 1013904223u;
     return float(seed & 0x00FFFFFFu) * (1.0f / 16777216.0f);
@@ -127,8 +128,9 @@ __host__ __device__ vec3 trace_ray(ray r, sphere* spheres, int num_spheres, vec3
     return final_color; // Return the accumulated color after all bounces and contributions have been calculated.
 }
 
-// Traces a single ray through the scene, calculating color contributions from direct lighting, shadows, and reflections.
-// It returns the final color for the ray.
+// Optimized version of trace_ray
+// Implements early exit conditions for shadow rays to avoid unnecessary calculations
+// Caches the hit sphere data in a local variable to avoid repeated memory accesses
 __host__ __device__ vec3 trace_ray_optimized(ray r, sphere* spheres, int num_spheres, vec3 light_position){
 
     const int MAX_BOUNCES = 5;
@@ -181,7 +183,7 @@ __host__ __device__ vec3 trace_ray_optimized(ray r, sphere* spheres, int num_sph
             // Calculate brightness based on the angle between the light direction and the floor's normal vector.
             float brightness = fmaxf(0.0f, normal.dot(light_direction));
 
-            // Shadow ray to determine if the hit point is in shadow
+            // Uses hit_anything to allow for early exit if the shadow ray hits any sphere before reaching the light source
             ray shadow_ray(hit_point, light_direction);
             if (hit_anything(shadow_ray, spheres, num_spheres, (light_position - hit_point).length())) {
                 brightness *= 0.5f;
@@ -197,7 +199,7 @@ __host__ __device__ vec3 trace_ray_optimized(ray r, sphere* spheres, int num_sph
         // If we hit a sphere we calculate the color contribution from that sphere
         vec3 hit_point = current_ray.at(hit_t);
 
-        sphere hit_sphere_data = spheres[hit_index]; // Store the hit sphere's data in a local variable to avoid repeated global memory accesses.
+        sphere hit_sphere_data = spheres[hit_index]; // Store the hit sphere's data in a local variable to avoid repeated memory accesses.
 
         // Brightness is calculated based on the angle between the light direction and the normal at the hit point.
         vec3 normal = (hit_point - hit_sphere_data.center).normalize();
@@ -206,7 +208,7 @@ __host__ __device__ vec3 trace_ray_optimized(ray r, sphere* spheres, int num_sph
         brightness = fmaxf(0.0f, brightness);
 
 
-        // Shadow ray to determine if the hit point is in shadow
+        // Uses hit_anything to allow for early exit if the shadow ray hits any sphere before reaching the light source
         ray shadow_ray(hit_point, light_direction);
         if (hit_anything(shadow_ray, spheres, num_spheres, (light_position - hit_point).length())) {
             brightness *= 0.5f;
@@ -279,9 +281,12 @@ __global__ void gpu_render(vec3* framebuffer, vec3 camera_origin, sphere* sphere
 
 
 
-// Placeholder for the optimized GPU rendering kernel.
+// Optimized version of gpu_render
+// Uses a LCG for random number generation instead of curand to allow for more occupancy
+// Uses shared memory for sphere data to reduce global memory accesses
 __global__ void gpu_render_optimized(vec3* framebuffer, vec3 camera_origin, sphere* spheres, int num_spheres, vec3 light_position, int width, int height, float viewport_width, float viewport_height, float focal_length) {
 
+    // Load sphere data into shared memory to reduce  memory accesses
     __shared__ sphere shared_spheres[4];
     int local_index = threadIdx.y * blockDim.x + threadIdx.x;
     if (local_index < num_spheres) {
@@ -298,6 +303,7 @@ __global__ void gpu_render_optimized(vec3* framebuffer, vec3 camera_origin, sphe
     // Guard against threads outside the image
     if (x >= width || y >= height) return;
 
+    // Seed the LCG with a unique value for each pixel to ensure different random values for each pixel
     unsigned int seed = pixel_index * 3242174893u + 123456789u;
 
     // Initialize vector to accumulate color samples for anti-aliasing
@@ -322,7 +328,7 @@ __global__ void gpu_render_optimized(vec3* framebuffer, vec3 camera_origin, sphe
         vec3 ray_direction = (viewport_point - camera_origin).normalize();
         ray r(camera_origin, ray_direction);
 
-        // Trace the ray and accumulate the color contribution from this sample
+        // Trace the ray and accumulate the color contribution from this sample using the optimized trace_ray function
         pixel_color = pixel_color + trace_ray_optimized(r, shared_spheres, num_spheres, light_position);
     }
 
