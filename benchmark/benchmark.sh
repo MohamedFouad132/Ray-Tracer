@@ -1,5 +1,6 @@
 #!/bin/bash
 
+# benchmark.sh
 # This script benchmarks the raytracer executable across different resolutions and modes.
 # It builds the project, runs the benchmarks and generates a report in Markdown format.
 
@@ -12,10 +13,9 @@ mkdir -p build
 cd build
 cmake .. > /dev/null
 make > /dev/null
-cd ..
 
 # Check if the build was successful
-if [ ! -f "build/raytracer" ]; then
+if [ ! -f "raytracer" ]; then
     echo "Error: build failed, raytracer executable not found"
     exit 1
 fi
@@ -40,9 +40,9 @@ MODES=(
 
 RUNS_PER_MODE=5
 
-RAW_CSV="benchmark/benchmark_raw.csv"
-REPORT_MD="benchmark/benchmark_results.md"
-TIMING_FILE="benchmark/last_render_time.txt"
+RAW_CSV="../benchmark/benchmark_raw.csv"
+REPORT_MD="../benchmark/benchmark_results.md"
+TIMING_FILE="last_render_time.txt"
 
 echo "resolution,mode,run,time_ms" > "$RAW_CSV"
 
@@ -62,9 +62,9 @@ for res in "${RESOLUTIONS[@]}"; do
         current_config=$((current_config + 1))
         echo "  [$current_config/$total_configs] ${res} | ${mode}"
         echo "      warming up..."
-        ./build/raytracer --width "$width" --height "$height" --mode "$mode" > /dev/null
+        ./raytracer --width "$width" --height "$height" --mode "$mode" > /dev/null
         for run in $(seq 1 $RUNS_PER_MODE); do
-            ./build/raytracer --width "$width" --height "$height" --mode "$mode" --benchmark > /dev/null
+            ./raytracer --width "$width" --height "$height" --mode "$mode" --benchmark > /dev/null
             time_ms=$(cat "$TIMING_FILE")
             echo "$res,$mode,$run,$time_ms" >> "$RAW_CSV"
             echo "      run $run/$RUNS_PER_MODE: ${time_ms} ms"
@@ -74,6 +74,6 @@ done
 
 echo ""
 echo "[3/3] Generating report..."
-python3 benchmark/generate_report.py "$RAW_CSV" "$REPORT_MD"
+python3 ../benchmark/generate_report.py "$RAW_CSV" "$REPORT_MD"
 
 echo "Benchmarking complete. Results written to $REPORT_MD"
