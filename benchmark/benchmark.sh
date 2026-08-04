@@ -40,8 +40,9 @@ MODES=(
 
 RUNS_PER_MODE=5
 
-RAW_CSV="benchmark_raw.csv"
-REPORT_MD="benchmark_results.md"
+RAW_CSV="benchmark/benchmark_raw.csv"
+REPORT_MD="benchmark/benchmark_results.md"
+TIMING_FILE="benchmark/last_render_time.txt"
 
 echo "resolution,mode,run,time_ms" > "$RAW_CSV"
 
@@ -64,7 +65,7 @@ for res in "${RESOLUTIONS[@]}"; do
         ./build/raytracer --width "$width" --height "$height" --mode "$mode" > /dev/null
         for run in $(seq 1 $RUNS_PER_MODE); do
             ./build/raytracer --width "$width" --height "$height" --mode "$mode" --benchmark > /dev/null
-            time_ms=$(cat last_render_time.txt)
+            time_ms=$(cat "$TIMING_FILE")
             echo "$res,$mode,$run,$time_ms" >> "$RAW_CSV"
             echo "      run $run/$RUNS_PER_MODE: ${time_ms} ms"
         done
