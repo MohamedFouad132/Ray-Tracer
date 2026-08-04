@@ -47,6 +47,7 @@ __host__ __device__ inline bool hit_sphere(const ray& r, const sphere& s, float&
 }
 
 // Determines if a ray intersects with a horizontal plane at a given z-coordinate and finds the intersection distance t if it does.
+// For the derivation, see docs/derivations.md#plane-intersection
 __host__ __device__ inline bool hit_plane(const ray& r, float plane_z, float& t) {
     
     // if ray is nearly parallel to the plane then we consider it as not intersecting to avoid numerical instability
