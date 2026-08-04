@@ -124,7 +124,7 @@ int main(int argc, char** argv){
             end = std::chrono::high_resolution_clock::now();
             // Calculate the elapsed time in milliseconds and write it to last_render_time.txt
             std::chrono::duration<double, std::milli> elapsed = end - start;
-            FILE* timing_file = fopen("last_render_time.txt", "w");
+            FILE* timing_file = fopen("benchmark/last_render_time.txt", "w");
             fprintf(timing_file, "%.4f", elapsed.count());
             fclose(timing_file);
         }
@@ -171,7 +171,7 @@ int main(int argc, char** argv){
             float milliseconds;
             cudaEventElapsedTime(&milliseconds, start, stop);
             // Write the elapsed time to last_render_time.txt
-            FILE* timing_file = fopen("last_render_time.txt", "w");
+            FILE* timing_file = fopen("benchmark/last_render_time.txt", "w");
             fprintf(timing_file, "%.4f", milliseconds);
             fclose(timing_file);
             // Destroy the CUDA events to free resources
