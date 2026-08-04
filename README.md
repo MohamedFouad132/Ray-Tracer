@@ -68,7 +68,7 @@ cd cuTrace
 mkdir build && cd build
 cmake ..
 make
-./build/raytracer [Flags]
+./raytracer [Flags]
 convert output.ppm output.png
 ```
 
@@ -78,6 +78,7 @@ convert output.ppm output.png
 ```bash
 git clone https://github.com/MohamedFouad132/cuTrace.git
 cd cuTrace
+chmod +x render.sh
 ./render.sh [Flags]
 ```
 
@@ -97,7 +98,9 @@ Open `output.png` to view result.
 To benchmark across all modes and resolutions
 
 ```bash
-bash benchmark/benchmark.sh
+cd benchmark
+chmod +x benchmark.sh
+./benchmark.sh
 ```
 
 **Example**:
