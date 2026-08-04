@@ -12,7 +12,7 @@
 // Determines if a ray intersects with a sphere and finds the intersection distance t if it does.
 // The function uses the quadratic formula to solve for t, where t is the distance along the ray to the intersection point.
 // For the full derivation, see docs/derivations.md#sphere-intersection
-__host__ __device__ bool hit_sphere(const ray& r, const sphere& s, float& t){
+__host__ __device__ inline bool hit_sphere(const ray& r, const sphere& s, float& t){
 
     vec3 oc = r.origin - s.center;
     // coefficents for the quadratic equation at^2 + bt + c = 0
@@ -47,7 +47,7 @@ __host__ __device__ bool hit_sphere(const ray& r, const sphere& s, float& t){
 }
 
 // Determines if a ray intersects with a horizontal plane at a given z-coordinate and finds the intersection distance t if it does.
-__host__ __device__ bool hit_plane(const ray& r, float plane_z, float& t) {
+__host__ __device__ inline bool hit_plane(const ray& r, float plane_z, float& t) {
     
     // if ray is nearly parallel to the plane then we consider it as not intersecting to avoid numerical instability
     // This is because it would need to travel an unrealistic distance to intersect the plane which is not practical
@@ -61,7 +61,7 @@ __host__ __device__ bool hit_plane(const ray& r, float plane_z, float& t) {
 // Determines the closest intersection of a ray with a scene of spheres.
 // It iterates through all spheres checking for intersections and keeping track of the closest one found.
 // Returns the index of the closest intersected sphere and updates closest_t with the distance to that intersection.
-__host__ __device__ int hit_scene(const ray& r, const sphere* spheres, int num_spheres, float& closest_t) {
+__host__ __device__ inline int hit_scene(const ray& r, const sphere* spheres, int num_spheres, float& closest_t) {
     // Initialize closest_t to a large value to ensure any valid intersection will be closer
     closest_t = FLT_MAX;
     int index = -1;
@@ -80,7 +80,7 @@ __host__ __device__ int hit_scene(const ray& r, const sphere* spheres, int num_s
 
 // Determines if a ray intersects with any sphere in the scene within a maximum distance max_t.
 // This function is used for shadows to exit early if any object blocks the light source.
-__host__ __device__ bool hit_anything(const ray& r, const sphere* spheres, int num_spheres, float max_t) {
+__host__ __device__ inline bool hit_anything(const ray& r, const sphere* spheres, int num_spheres, float max_t) {
 
     for (int i = 0; i < num_spheres; i++) {
         float t;
@@ -96,6 +96,6 @@ __host__ __device__ bool hit_anything(const ray& r, const sphere* spheres, int n
 
 // Reflects a vector d around a normal n using the reflection formula
 // For the derivation of this formula, see docs/derivations.md#reflection
-__host__ __device__ vec3 reflect(const vec3& d, const vec3& n) {
+__host__ __device__ inline vec3 reflect(const vec3& d, const vec3& n) {
     return d - n * 2.0f * d.dot(n);
 }
