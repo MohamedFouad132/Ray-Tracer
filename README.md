@@ -55,6 +55,7 @@ cuTrace/
 - Python 3
 - CMake 3.18+
 - Bash
+- Git
 - ImageMagick (converts ppm to png)
 
 ## Setup
@@ -87,11 +88,11 @@ chmod +x render.sh
 --width <n>     Image width in pixels (default: 1920)
 --height <n>    Image height in pixels (default: 1080)
 --mode <mode>   Render path: cpu, gpu, gpu-optimized (default: gpu)
---benchmark     Write precise render time to benchmark/last_render_time.txt
+--benchmark     Write precise render time to last_render_time.txt
 --help, -h      Show usage information
 ```
 
-Open `output.png` to view result.
+Open `build/output.png` to view result.
 
 ## Benchmarks
 
