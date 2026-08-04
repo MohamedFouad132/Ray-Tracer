@@ -1,5 +1,3 @@
 build/
-output.ppm
-output.png
 benchmark/last_render_time.txt
 benchmark/benchmark_raw.csv
