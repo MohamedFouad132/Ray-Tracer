@@ -49,7 +49,7 @@ cuTrace/
 
 ## Prerequisites
 
-- NVIDIA GPU (not needed for --mode cpu)
+- NVIDIA GPU
 - CUDA Toolkit 12.x or newer
 - C++17 compatible compiler (usually installed automatically with the CUDA Toolkit)
 - Python 3
